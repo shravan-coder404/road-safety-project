@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Road Safety Risk Analyzer - Hack Fest 2025</title>
+    
+    <!-- Leaflet CSS for the map -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    
+    <!-- Our custom styles -->
+    <style>
+        /* Reset and basic styling */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        /* Header styling */
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem;
+            text-align: center;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        /* Main layout */
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 1rem;
+            padding: 1rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            height: calc(100vh - 120px);
+        }
+        
+        /* Sidebar styling */
+        .sidebar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+        }
+        
+        /* Statistics cards */
+        .stats-card {
+            background: linear-gradient(135deg, #ff6b6b, #feca57);
+            color: white;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .stats-card h3 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stats-card p {
+            opacity: 0.9;
+        }
+        
+        /* Control panel */
+        .controls {
+            margin-top: 1rem;
+        }
+        
+        .control-group {
+            margin-bottom: 1rem;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .control-group input, .control-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .control-group input:focus, .control-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        /* Legend styling */
+        .legend {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .legend h4 {
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Map container */
+        .map-container {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        
+        /* Loading indicator */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 2rem;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 1000;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Update button */
+        .update-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+        
+        .update-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+        
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Main header -->
+    <div class="header">
+        <h1>🚦 Road Safety Risk Analyzer</h1>
+        <p>AI-Powered Accident Prevention System | Hack Fest 2025</p>
+    </div>
+    
+    <!-- Main content area -->
+    <div class="container">
+        <!-- Left sidebar with controls and stats -->
+        <div class="sidebar">
+            <!-- Statistics cards -->
+            <div class="stats-card">
+                <h3 id="totalLocations">-</h3>
+                <p>Monitored Locations</p>
+            </div>
+            
+            <div class="stats-card">
+                <h3 id="totalAccidents">-</h3>
+                <p>Total Accidents</p>
+            </div>
+            
+            <div class="stats-card">
+                <h3 id="highRiskAreas">-</h3>
+                <p>High Risk Areas</p>
+            </div>
+            
+            <!-- Control panel -->
+            <div class="controls">
+                <div class="control-group">
+                    <label for="minRisk">Minimum Risk Score:</label>
+                    <input type="range" id="minRisk" min="0" max="100" value="0">
+                    <span id="minRiskValue">0</span>
+                </div>
+                
+                <div class="control-group">
+                    <label for="maxRisk">Maximum Risk Score:</label>
+                    <input type="range" id="maxRisk" min="0" max="100" value="100">
+                    <span id="maxRiskValue">100</span>
+                </div>
+                
+                <div class="control-group">
+                    <button class="update-btn" onclick="updateMap()">🔄 Update Map</button>
+                </div>
+            </div>
+            
+            <!-- Risk level legend -->
+            <div class="legend">
+                <h4>Risk Levels</h4>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ff4757;"></div>
+                    <span>Very High (75-100)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ff7675;"></div>
+                    <span>High (50-74)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #fdcb6e;"></div>
+                    <span>Medium (25-49)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #00b894;"></div>
+                    <span>Low (0-24)</span>
+                </div>
+            </div>
+            
+            <!-- Last updated info -->
+            <div style="margin-top: 1rem; text-align: center; color: #666; font-size: 0.9rem;">
+                <p>Last Updated: <span id="lastUpdated">-</span></p>
+            </div>
+        </div>
+        
+        <!-- Right side - Map area -->
+        <div class="map-container">
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Loading risk data...</p>
+            </div>
+            <div id="map"></div>
+        </div>
+    </div>
+    
+    <!-- Leaflet JavaScript library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    
+    <!-- Our JavaScript code -->
+    <script>
+        let map;
+        let markersLayer;
+        
+        // Initialize the map when page loads
+        function initMap() {
+            // Center on Bengaluru (change coordinates for your city)
+            map = L.map('map').setView([12.9716, 77.5946], 11);
+            
+            // Add map tiles from OpenStreetMap
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            // Create layer for markers
+            markersLayer = L.layerGroup().addTo(map);
+            
+            // Load data when map is ready
+            loadStatistics();
+            loadRiskData();
+        }
+        
+        // Get statistics from our Flask API
+        function loadStatistics() {
+            fetch('/api/statistics')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('totalLocations').textContent = data.total_locations;
+                    document.getElementById('totalAccidents').textContent = data.total_accidents;
+                    document.getElementById('highRiskAreas').textContent = data.high_risk_areas;
+                    document.getElementById('lastUpdated').textContent = data.last_updated;
+                })
+                .catch(error => {
+                    console.error('Error loading statistics:', error);
+                });
+        }
+        
+        // Get risk data and show on map
+        function loadRiskData() {
+            const minRisk = document.getElementById('minRisk').value;
+            const maxRisk = document.getElementById('maxRisk').value;
+            
+            fetch(`/api/risk-data?min_risk=${minRisk}&max_risk=${maxRisk}`)
+                .then(response => response.json())
+                .then(data => {
+                    updateMapMarkers(data);
+                    document.getElementById('loading').style.display = 'none';
+                })
+                .catch(error => {
+                    console.error('Error loading risk data:', error);
+                    document.getElementById('loading').style.display = 'none';
+                });
+        }
+        
+        // Add markers to the map
+        function updateMapMarkers(data) {
+            // Clear existing markers
+            markersLayer.clearLayers();
+            
+            data.forEach(location => {
+                const color = getRiskColor(location.risk_score);
+                const size = Math.max(10, Math.min(30, location.risk_score / 3));
+                
+                // Create circle marker
+                const marker = L.circleMarker([location.lat, location.lng], {
+                    color: 'white',
+                    fillColor: color,
+                    fillOpacity: 0.8,
+                    radius: size,
+                    weight: 2
+                });
+                
+                // Create popup with location info
+                const popupContent = `
+                    <div style="max-width: 250px;">
+                        <h3 style="margin: 0 0 10px 0; color: #333;">${location.location}</h3>
+                        <div style="background: ${color}; color: white; padding: 5px 10px; border-radius: 5px; margin-bottom: 10px; text-align: center;">
+                            <strong>Risk Score: ${location.risk_score}</strong> (${location.risk_level})
+                        </div>
+                        <p><strong>📊 Accidents:</strong> ${location.accidents}</p>
+                        <p><strong>⚡ Severity:</strong> ${location.severity}/10</p>
+                        <p><strong>🚗 Traffic Volume:</strong> ${location.traffic_volume}</p>
+                        <p><strong>🌧️ Weather Impact:</strong> ${location.weather_impact}x</p>
+                        <button onclick="showLocationDetails(${location.id})" 
+                                style="background: #667eea; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; margin-top: 10px;">
+                            View Details
+                        </button>
+                    </div>
+                `;
+                
+                marker.bindPopup(popupContent);
+                markersLayer.addLayer(marker);
+            });
+        }
+        
+        // Get color based on risk score
+        function getRiskColor(riskScore) {
+            if (riskScore >= 75) return '#ff4757'; // Very High - Red
+            if (riskScore >= 50) return '#ff7675'; // High - Light Red
+            if (riskScore >= 25) return '#fdcb6e'; // Medium - Yellow
+            return '#00b894'; // Low - Green
+        }
+        
+        // Show detailed info for a location
+        function showLocationDetails(locationId) {
+            fetch(`/api/location-details/${locationId}`)
+                .then(response => response.json())
+                .then(data => {
+                    let recommendations = '';
+                    data.recommendations.forEach(rec => {
+                        recommendations += `<li>${rec}</li>`;
+                    });
+                    
+                    const detailsContent = `
+                        <div style="max-width: 300px;">
+                            <h3 style="color: #333; margin-bottom: 15px;">📍 ${data.location}</h3>
+                            <h4 style="color: #667eea; margin-bottom: 10px;">📋 Safety Recommendations:</h4>
+                            <ul style="padding-left: 20px; margin-bottom: 15px;">
+                                ${recommendations}
+                            </ul>
+                            <p style="font-size: 0.9em; color: #666;">
+                                💡 Risk assessment based on historical data, traffic patterns, and weather conditions.
+                            </p>
+                        </div>
+                    `;
+                    
+                    const popup = L.popup()
+                        .setLatLng([data.lat, data.lng])
+                        .setContent(detailsContent)
+                        .openOn(map);
+                })
+                .catch(error => {
+                    console.error('Error loading location details:', error);
+                });
+        }
+        
+        // Update map when user clicks button
+        function updateMap() {
+            document.getElementById('loading').style.display = 'block';
+            loadRiskData();
+            loadStatistics();
+        }
+        
+        // Update range input displays
+        document.getElementById('minRisk').addEventListener('input', function() {
+            document.getElementById('minRiskValue').textContent = this.value;
+        });
+        
+        document.getElementById('maxRisk').addEventListener('input', function() {
+            document.getElementById('maxRiskValue').textContent = this.value;
+        });
+        
+        // Start everything when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+        });
+    </script>
+</body>
+</html>
